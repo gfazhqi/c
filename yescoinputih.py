@@ -7,11 +7,14 @@ import sys
 def current_unix_timestamp():
     return int(time.time() * 1000)
 
-def read_launch_params(file_path):
+def read_launch_params_and_tokens(file_path):
     with open(file_path, 'r') as file:
-        return file.read().strip()
+        lines = file.readlines()
+        launch_params = lines[0].strip()
+        tokens = [line.strip() for line in lines[1:]]
+        return launch_params, tokens
 
-def make_post_request(launch_params):
+def make_post_request(launch_params, token):
     view_completed_at = current_unix_timestamp()
 
     post_url = "https://clownfish-app-f7unk.ondigitalocean.app/v2/tasks/claimAdsgramAdReward"
@@ -33,29 +36,29 @@ def make_post_request(launch_params):
         "Sec-Fetch-Mode": "cors",
         "Sec-Fetch-Site": "cross-site",
         "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36 Edg/126.0.0.0",
-        "Authorization": "Bearer YOUR_ACCESS_TOKEN",
+        "Authorization": f"Bearer {token}",
         "Launch-Params": launch_params
     }
 
     try:
         post_response = requests.post(post_url, headers=post_headers, json=post_data)
         if post_response.status_code == 200:
-            log_message("POST request successful.")
+            log_message(f"POST request successful for token {token}.")
         else:
-            log_message(f"POST request failed. Status code: {post_response.status_code}")
-        log_message(f"Response content: {post_response.text}")
+            log_message(f"POST request failed for token {token}. Status code: {post_response.status_code}")
+        log_message(f"Response content for token {token}: {post_response.text}")
     except Exception as e:
-        log_message(f"Exception during POST request: {e}")
+        log_message(f"Exception during POST request for token {token}: {e}")
 
-    log_message(f"Unix timestamp at the end: {view_completed_at}")
+    log_message(f"Unix timestamp at the end for token {token}: {view_completed_at}")
 
 def start_requests():
     global stop_requests
-    launch_params = read_launch_params(data_file_path)
+    launch_params, tokens = read_launch_params_and_tokens(data_file_path)
 
     while not stop_requests:
         with concurrent.futures.ThreadPoolExecutor() as executor:
-            futures = [executor.submit(make_post_request, launch_params) for _ in range(num_requests)]
+            futures = [executor.submit(make_post_request, launch_params, token) for token in tokens for _ in range(num_requests)]
             for future in concurrent.futures.as_completed(futures):
                 try:
                     future.result()
@@ -66,7 +69,7 @@ def start_requests():
         for _ in range(60):
             if stop_requests:
                 break
-            time.sleep(1)  
+            time.sleep(1)
 
 def on_start_stop():
     global stop_requests, request_thread
