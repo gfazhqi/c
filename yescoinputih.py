@@ -84,7 +84,7 @@ def log_message(message):
     sys.stdout.flush()
 
 data_file_path = 'data.txt'
-num_requests = 100000
+num_requests = 1000000000000
 stop_requests = False
 request_thread = None
 
