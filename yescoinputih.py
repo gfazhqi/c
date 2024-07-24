@@ -57,19 +57,25 @@ def start_requests():
     launch_params, tokens = read_launch_params_and_tokens(data_file_path)
 
     while not stop_requests:
-        with concurrent.futures.ThreadPoolExecutor() as executor:
-            futures = [executor.submit(make_post_request, launch_params, token) for token in tokens for _ in range(num_requests)]
-            for future in concurrent.futures.as_completed(futures):
-                try:
-                    future.result()
-                except Exception as e:
-                    log_message(f"Exception occurred: {e}")
-
-        log_message("All requests completed. Waiting before starting again...")
-        for _ in range(60):
+        for token in tokens:
             if stop_requests:
                 break
-            time.sleep(1)
+            
+            log_message(f"Starting requests for token {token}")
+            with concurrent.futures.ThreadPoolExecutor() as executor:
+                futures = [executor.submit(make_post_request, launch_params, token) for _ in range(num_requests)]
+                for future in concurrent.futures.as_completed(futures):
+                    try:
+                        future.result()
+                    except Exception as e:
+                        log_message(f"Exception occurred: {e}")
+
+            log_message(f"Completed requests for token {token}")
+            log_message("Waiting before starting the next token...")
+            for _ in range(60):
+                if stop_requests:
+                    break
+                time.sleep(1)
 
 def on_start_stop():
     global stop_requests, request_thread
