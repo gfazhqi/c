@@ -1,4 +1,3 @@
-import tkinter as tk
 import requests
 import concurrent.futures
 import time
@@ -38,14 +37,15 @@ def make_post_request(launch_params):
         "Launch-Params": launch_params
     }
 
-    post_response = requests.post(post_url, headers=post_headers, json=post_data)
-
-    if post_response.status_code == 200:
-        log_message("POST request successful.")
-    else:
-        log_message(f"POST request failed. Status code: {post_response.status_code}")
-
-    log_message(f"Response content: {post_response.text}")
+    try:
+        post_response = requests.post(post_url, headers=post_headers, json=post_data)
+        if post_response.status_code == 200:
+            log_message("POST request successful.")
+        else:
+            log_message(f"POST request failed. Status code: {post_response.status_code}")
+        log_message(f"Response content: {post_response.text}")
+    except Exception as e:
+        log_message(f"Exception during POST request: {e}")
 
     log_message(f"Unix timestamp at the end: {view_completed_at}")
 
@@ -56,10 +56,9 @@ def start_requests():
     while not stop_requests:
         with concurrent.futures.ThreadPoolExecutor() as executor:
             futures = [executor.submit(make_post_request, launch_params) for _ in range(num_requests)]
-
             for future in concurrent.futures.as_completed(futures):
                 try:
-                    result = future.result()
+                    future.result()
                 except Exception as e:
                     log_message(f"Exception occurred: {e}")
 
@@ -69,51 +68,31 @@ def start_requests():
                 break
             time.sleep(1)  
 
-def on_start_stop_button_click():
+def on_start_stop():
     global stop_requests, request_thread
 
-    if start_stop_button['text'] == "Start":
+    if not request_thread or not request_thread.is_alive():
         stop_requests = False
-        start_stop_button['text'] = "Stop"
         request_thread = threading.Thread(target=start_requests)
         request_thread.start()
     else:
         stop_requests = True
-        start_stop_button['text'] = "Start"
+        request_thread.join()
 
 def log_message(message):
-    log_text_widget.insert(tk.END, message + "\n")
-    log_text_widget.see(tk.END)
-
-class RedirectText(object):
-    def __init__(self, widget):
-        self.widget = widget
-
-    def write(self, string):
-        self.widget.insert(tk.END, string)
-        self.widget.see(tk.END)
-
-    def flush(self):
-        pass
+    print(message)
+    sys.stdout.flush()
 
 data_file_path = 'data.txt'
 num_requests = 100000
 stop_requests = False
 request_thread = None
 
-root = tk.Tk()
-root.title("POST Request GUI")
-
-title_label = tk.Label(root, text="Yescoin Putih By APS Studio Team", font=("Helvetica", 16))
-title_label.pack(pady=10)
-
-start_stop_button = tk.Button(root, text="Start", command=on_start_stop_button_click)
-start_stop_button.pack(pady=20)
-
-log_text_widget = tk.Text(root, wrap='word', height=20, width=80)
-log_text_widget.pack(pady=20)
-
-sys.stdout = RedirectText(log_text_widget)
-
-root.mainloop()
-
+if __name__ == "__main__":
+    on_start_stop()
+    try:
+        while request_thread.is_alive():
+            time.sleep(1)
+    except KeyboardInterrupt:
+        stop_requests = True
+        request_thread.join()
